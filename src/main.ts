@@ -140,7 +140,7 @@ export class FishFishApi {
 	 * Returns true if the session token is valid.
 	 */
 	public get hasSessionToken(): boolean {
-		return this.sessionToken !== null;
+		return Boolean(this.sessionToken);
 	}
 
 	/**
@@ -257,7 +257,7 @@ export class FishFishApi {
 
 		const data = this._transformData<Domain>(await response.body.json());
 
-		if (options.cache) {
+		if (this._options.cache && options.cache) {
 			this.cache.domains.set(domain, data);
 		}
 
@@ -344,7 +344,7 @@ export class FishFishApi {
 
 		const data = (await response.body.json()) as Domain[];
 
-		if (options.cache && (options.full || !this._options.doNotCachePartial)) {
+		if (this._options.cache && options.cache && (options.full || !this._options.doNotCachePartial)) {
 			for (const domain of data) {
 				this.cache.domains.set(domain.name, domain);
 			}
@@ -473,7 +473,7 @@ export class FishFishApi {
 
 		const data = (await response.body.json()) as Domain[];
 
-		if (options.cache && (options.full || !this._options.doNotCachePartial)) {
+		if (this._options.cache && options.cache && (options.full || !this._options.doNotCachePartial)) {
 			for (const domain of data) {
 				this.cache.urls.set(domain.name, domain);
 			}

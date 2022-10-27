@@ -47,12 +47,3 @@ export interface RawData {
 	name: string;
 	target: string;
 }
-
-export interface RawURL {
-	added: number;
-	category: Category;
-	checked: number;
-	description: string;
-	name: string;
-	target: string;
-}
