@@ -28,22 +28,85 @@ export interface ApiStatusResponse {
 	worker: number;
 }
 
-export enum BaseMethod {
-	Create,
-	Update,
-}
-
-export interface BaseRequest<T extends BaseMethod> {
-	category: T extends BaseMethod.Create ? Category : Category | undefined;
-	description: T extends BaseMethod.Create ? Category : Category | undefined;
+interface BaseRequest {
+	/**
+	 * The target of the domain.
+	 */
 	target?: string;
 }
 
-export interface RawData {
-	added: number;
+export interface CreateRequest extends BaseRequest {
+	/**
+	 * The category of the domain.
+	 */
 	category: Category;
-	checked: number;
+	/**
+	 * The category of the domain.
+	 */
 	description: string;
-	name: string;
-	target: string;
+}
+
+export interface UpdateRequest extends BaseRequest {
+	/**
+	 * The category of the domain.
+	 */
+	category?: Category;
+	/**
+	 * The category of the domain.
+	 */
+	description?: string;
+}
+
+export interface RawDomainData {
+	/**
+	 * The time the domain was added.
+	 */
+	added: number;
+	/**
+	 * The category of the domain.
+	 */
+	category: Category;
+	/**
+	 * The time the domain was last checked.
+	 */
+	checked: number;
+	/**
+	 * The description of the domain.
+	 */
+	description: string;
+	/**
+	 * The domain.
+	 */
+	domain: string;
+	/**
+	 * The target of the domain.
+	 */
+	target?: string;
+}
+
+export interface RawUrlData {
+	/**
+	 * The time the URL was added.
+	 */
+	added: number;
+	/**
+	 * The category of the URL.
+	 */
+	category: Category;
+	/**
+	 * The time the URL was last checked.
+	 */
+	checked: number;
+	/**
+	 * The description of the URL.
+	 */
+	description: string;
+	/**
+	 * The target of the URL.
+	 */
+	target?: string;
+	/**
+	 * The URL.
+	 */
+	url: string;
 }
