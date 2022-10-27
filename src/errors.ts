@@ -7,5 +7,6 @@ export enum ErrorsMessages {
 	MISSING_FIELD_CREATE = 'The category and description fields are required when creating a new entry.',
 	MISSING_FIELD_UPDATE = 'You need to provide at least one field to update.',
 	RATE_LIMITED = 'You are being rate limited.',
+	SESSION_TOKEN_NO_PERMISSION = 'The session token provided has not been instantiated with the required permission to perform this action.',
 	SESSION_TOKEN_UNAUTHORIZED = 'The session token provided is invalid or has expired.',
 }
