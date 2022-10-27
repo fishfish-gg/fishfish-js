@@ -4,6 +4,5 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll": true,
 		"source.organizeImports": false
-	},
-	"eslint.workingDirectories": [{ "pattern": "./packages/*" }]
+	}
 }
