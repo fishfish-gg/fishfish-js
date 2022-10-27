@@ -94,6 +94,28 @@ export class FishFishApi {
 
 	private readonly _options: FishFishApiOptions;
 
+	public static async getAllDomains(category: Category): Promise<string[]> {
+		const params = new URLSearchParams();
+		params.append('category', category);
+		params.append('full', String(false));
+		const response = await request(`${API_BASE_URL}/domains?${params.toString()}`);
+
+		await FishFishApi._validateResponse(response);
+
+		return response.body.json();
+	}
+
+	public static async getAllUrls(category: Category): Promise<string[]> {
+		const params = new URLSearchParams();
+		params.append('category', category);
+		params.append('full', String(false));
+		const response = await request(`${API_BASE_URL}/urls?${params.toString()}`);
+
+		await FishFishApi._validateResponse(response);
+
+		return response.body.json();
+	}
+
 	public constructor(apiKey: string, options: FishFishApiOptions) {
 		this._assertString(apiKey);
 
@@ -170,7 +192,7 @@ export class FishFishApi {
 			}),
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const { token, expires } = (await response.body.json()) as RawCreateTokenResponseBody;
 
@@ -193,7 +215,7 @@ export class FishFishApi {
 	public async getApiStatus(): Promise<ApiStatusResponse> {
 		const response = await request(`${API_BASE_URL}/status`);
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return response.body.json();
 	}
@@ -220,7 +242,7 @@ export class FishFishApi {
 			body: JSON.stringify(data),
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const insertedData = this._transformData<Domain>(await response.body.json());
 
@@ -253,7 +275,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const data = this._transformData<Domain>(await response.body.json());
 
@@ -286,7 +308,7 @@ export class FishFishApi {
 			body: JSON.stringify(data),
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return this._transformData<Domain>(await response.body.json());
 	}
@@ -306,7 +328,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return true;
 	}
@@ -340,7 +362,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const data = (await response.body.json()) as Domain[];
 
@@ -375,7 +397,7 @@ export class FishFishApi {
 			body: JSON.stringify(data),
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return this._transformData<URL>(await response.body.json());
 	}
@@ -402,7 +424,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const data = this._transformData<URL>(await response.body.json());
 
@@ -435,7 +457,7 @@ export class FishFishApi {
 			body: JSON.stringify(data),
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return this._transformData<URL>(await response.body.json());
 	}
@@ -469,7 +491,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		const data = (await response.body.json()) as Domain[];
 
@@ -497,7 +519,7 @@ export class FishFishApi {
 			},
 		});
 
-		await this._validateResponse(response);
+		await FishFishApi._validateResponse(response, this.hasSessionToken);
 
 		return true;
 	}
@@ -515,10 +537,10 @@ export class FishFishApi {
 		} as unknown as T;
 	}
 
-	private async _validateResponse(response: Dispatcher.ResponseData) {
+	private static async _validateResponse(response: Dispatcher.ResponseData, hasSessionToken = false) {
 		if (response.statusCode === 401) {
 			throw new Error(
-				this.sessionToken ? ErrorsMessages.SESSION_TOKEN_UNAUTHORIZED : ErrorsMessages.API_KEY_UNAUTHORIZED,
+				hasSessionToken ? ErrorsMessages.SESSION_TOKEN_UNAUTHORIZED : ErrorsMessages.API_KEY_UNAUTHORIZED,
 			);
 		}
 
@@ -538,3 +560,6 @@ export class FishFishApi {
 		}, this.sessionTokenExpireTimestamp! - Date.now());
 	}
 }
+
+export const getAllDomains = FishFishApi.getAllDomains;
+export const getAllUrls = FishFishApi.getAllUrls;
