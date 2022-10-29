@@ -27,6 +27,13 @@
 		"undici": "^5.11.0",
 		"ws": "^8.10.0"
 	},
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"require": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"devDependencies": {
 		"@swc/cli": "^0.1.57",
 		"@swc/core": "^1.3.3",
