@@ -88,15 +88,15 @@ interface FishFishApiOptions {
 	 */
 	debug?: boolean;
 	/**
-	 * Default permissions for the session token.
-	 */
-	defaultPermissions: Permission[];
-	/**
 	 * Only caches full responses.
 	 *
 	 * **Default:** `false`
 	 */
 	doNotCachePartial?: boolean;
+	/**
+	 * Default permissions for the session token.
+	 */
+	permissions: Permission[];
 	/**
 	 * Enables the webSocket connection.
 	 *
@@ -193,16 +193,16 @@ export class FishFishApi {
 	public constructor(apiKey: string, options: FishFishApiOptions) {
 		assertString(apiKey);
 
-		if (!Reflect.has(options ?? {}, 'defaultPermissions') || !options.defaultPermissions?.length) {
+		if (!Reflect.has(options ?? {}, 'permissions') || !options.permissions?.length) {
 			throw new Error(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
 		}
 
-		this.auth = new FishFishAuth(apiKey, options.defaultPermissions);
+		this.auth = new FishFishAuth(apiKey, options.permissions);
 
 		this._options = {
 			cache: options.cache ?? true,
 			doNotCachePartial: options.doNotCachePartial ?? false,
-			defaultPermissions: options.defaultPermissions,
+			permissions: options.permissions,
 		};
 
 		this._cache = {
