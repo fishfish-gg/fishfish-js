@@ -1,10 +1,8 @@
 import type { Category } from './constants.js';
 
-export interface RawCreateTokenResponseBody {
-	expires: number;
-	token: string;
-}
-
+/**
+ * The response body for the `GET /status` endpoint.
+ */
 export interface ApiStatusResponse {
 	/**
 	 * The number of domains in the database.
@@ -30,11 +28,20 @@ export interface ApiStatusResponse {
 
 interface BaseRequest {
 	/**
-	 * The target of the domain.
+	 * The target of the domain/url.
 	 */
 	target?: string;
 }
 
+/**
+ * The request body for the `POST` endpoints.
+ *
+ * - `POST /domains/:domain`
+ * - `POST /urls/:url`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_domain_request
+ * @see https://api.fishfish.gg/v1/docs#type-create_url_request
+ */
 export interface CreateRequest extends BaseRequest {
 	/**
 	 * The category of the domain.
@@ -46,6 +53,32 @@ export interface CreateRequest extends BaseRequest {
 	description: string;
 }
 
+/**
+ * The request body for the `POST /domains/:domain` endpoints.
+ *
+ * - `POST /domains/:domain`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_domain_request
+ */
+export type CreateDomainRequest = CreateRequest;
+/**
+ * The request body for the `POST /urls/:url` endpoints.
+ *
+ * - `POST /urls/:url`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_url_request
+ */
+export type CreateURLRequest = CreateRequest;
+
+/**
+ * The request body for the `PATCH` endpoints.
+ *
+ * - `PATCH /domains/:domain`
+ * - `PATCH /urls/:url`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_domain_request
+ * @see https://api.fishfish.gg/v1/docs#type-create_url_request
+ */
 export interface UpdateRequest extends BaseRequest {
 	/**
 	 * The category of the domain.
@@ -57,6 +90,28 @@ export interface UpdateRequest extends BaseRequest {
 	description?: string;
 }
 
+/**
+ * The request body for the `PATCH /domains/:domain` endpoint.
+ *
+ * - `PATCH /domains/:domain`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_domain_request
+ */
+export type UpdateDomainRequest = UpdateRequest;
+/**
+ * The request body for the `PATCH /urls/:url` endpoint.
+ *
+ * - `PATCH /urls/:url`
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-create_url_request
+ */
+export type UpdateURLRequest = UpdateRequest;
+
+/**
+ * The raw domain data returned from the API.
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-domain
+ */
 export interface RawDomainData {
 	/**
 	 * The time the domain was added.
@@ -84,7 +139,12 @@ export interface RawDomainData {
 	target?: string;
 }
 
-export interface RawUrlData {
+/**
+ * The raw URL data returned from the API.
+ *
+ * @see https://api.fishfish.gg/v1/docs#type-url
+ */
+export interface RawURLData {
 	/**
 	 * The time the URL was added.
 	 */
