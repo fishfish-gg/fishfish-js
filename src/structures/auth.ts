@@ -53,16 +53,28 @@ export class FishFishAuth {
 		this._permissions = permissions;
 	}
 
+	/**
+	 * Return the session token object or null if non existent.
+	 */
 	public get sessionToken() {
 		return this._sessionToken ? this._transformSessionToken(this._sessionToken) : null;
 	}
 
+	/**
+	 * Returns true if a session token exist.
+	 */
 	public get hasSessionToken() {
 		return Boolean(this._sessionToken);
 	}
 
-	public checkTokenPermissions(permissions: Permission) {
-		return Boolean(this._sessionToken?.permissions.includes(permissions));
+	/**
+	 * Check if a session token has the required permission.
+	 *
+	 * @param permission - The permission to check.
+	 * @returns True if the session token has the permission or false if not or if no session token exist.
+	 */
+	public checkTokenPermissions(permission: Permission) {
+		return Boolean(this._sessionToken?.permissions.includes(permission));
 	}
 
 	/**
