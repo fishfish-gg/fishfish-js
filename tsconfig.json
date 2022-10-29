@@ -36,11 +36,7 @@
 		"moduleResolution": "Node16",
 		"resolveJsonModule": true,
 		"outDir": "dist",
-		"lib": [
-			"ESNext"
-		]
+		"lib": ["ESNext"]
 	},
-	"include": [
-		"src/**/*.ts",
-	]
+	"include": ["src/**/*.ts"]
 }

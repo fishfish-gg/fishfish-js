@@ -1,7 +1,5 @@
 {
-	"exclude": [
-		".*/types/.*\\.ts$"
-	],
+	"exclude": [".*/types/.*\\.ts$"],
 	"jsc": {
 		"parser": {
 			"syntax": "typescript",
