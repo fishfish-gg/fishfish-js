@@ -31,36 +31,11 @@ afterEach(async () => {
 
 test('Test: Constructor validation', async () => {
 	// @ts-expect-error: Invalid API key test
-	expect(() => new FishFishApi()).toThrowError('Expected a string but received: undefined');
+	expect(() => new FishFishApi()).toThrowError((ErrorsMessages.INVALID_TYPE_STRING as string) + 'undefined');
 	// @ts-expect-error: Invalid options test
-	expect(() => new FishFishApi('super-valid-api-key')).toThrowError(
-		'You need to provide at least one permission for the session token.',
-	);
-});
+	expect(() => new FishFishApi('super-valid-api-key')).toThrowError(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
 
-test('Test: Create token validation', async () => {
-	const api = new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Domains] });
-
-	const expires = Math.floor(Date.now() / 1_000) + 1_000;
-
-	mockPool
-		.intercept({
-			path: '/v1/users/@me/tokens',
-			method: 'POST',
-		})
-		.reply(() => ({
-			statusCode: 200,
-			data: {
-				token: 'super-valid-session-token',
-				expires,
-			},
-			...responseOptions,
-		}));
-
-	expect(await api.getSessionToken()).toStrictEqual({
-		expires: new Date(expires * 1_000),
-		token: 'super-valid-session-token',
-	});
+	expect(() => new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Urls] })).not.toThrowError();
 });
 
 test('Test: Static properties', async () => {
@@ -190,45 +165,8 @@ test('Test: Missing permissions error', async () => {
 	).rejects.toThrowError(ErrorsMessages.SESSION_TOKEN_NO_PERMISSION);
 });
 
-test('Test: validateResponse', async () => {
+test('Test: Unauthorized session token', async () => {
 	const api = new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Domains] });
-
-	mockPool
-		.intercept({
-			path: '/v1/users/@me/tokens',
-			method: 'POST',
-		})
-		.reply(() => ({
-			statusCode: 401,
-		}))
-		.times(1);
-
-	await expect(async () => api.getSessionToken()).rejects.toThrowError(ErrorsMessages.API_KEY_UNAUTHORIZED);
-
-	mockPool
-		.intercept({
-			path: '/v1/users/@me/tokens',
-			method: 'POST',
-		})
-		.reply(() => ({
-			statusCode: 429,
-		}))
-		.times(1);
-
-	await expect(async () => api.getSessionToken()).rejects.toThrowError(ErrorsMessages.RATE_LIMITED);
-
-	mockPool
-		.intercept({
-			path: '/v1/users/@me/tokens',
-			method: 'POST',
-		})
-		.reply(() => ({
-			statusCode: 404,
-			data: 'Not found',
-		}))
-		.times(1);
-
-	await expect(async () => api.getSessionToken()).rejects.toThrowError('Unexpected status code 404: Not found');
 
 	mockPool
 		.intercept({
@@ -244,8 +182,6 @@ test('Test: validateResponse', async () => {
 			...responseOptions,
 		}))
 		.times(1);
-
-	await expect(api.getSessionToken()).resolves.not.toThrowError();
 
 	mockPool
 		.intercept({
