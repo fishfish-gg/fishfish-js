@@ -24,7 +24,7 @@
 	"author": "JPBM135 <jpedrobm0@gmail.com>",
 	"license": "AGPL-3.0",
 	"dependencies": {
-		"undici": "^5.11.0",
+		"undici": "^5.15.0",
 		"ws": "^8.10.0"
 	},
 	"exports": {

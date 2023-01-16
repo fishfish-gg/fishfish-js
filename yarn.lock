@@ -2699,7 +2699,7 @@ __metadata:
     eslint-config-neon: ^0.1.33
     prettier: ^2.7.1
     typescript: ^4.7.4
-    undici: ^5.11.0
+    undici: ^5.15.0
     vitest: ^0.24.3
     ws: ^8.10.0
   languageName: unknown
@@ -5055,12 +5055,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^5.11.0":
-  version: 5.11.0
-  resolution: "undici@npm:5.11.0"
+"undici@npm:^5.15.0":
+  version: 5.15.0
+  resolution: "undici@npm:5.15.0"
   dependencies:
     busboy: ^1.6.0
-  checksum: 20669ef4023d24a75e81ed8142829f525f16af14d61f833b5f19cfc6bed7c706adde343a190d764dcceb227eba3211222d2b194010462a2ca221a7da0487f563
+  checksum: cdc03ceff8d2b76a5ae08dc48d0b9d44dcb970f6e89e8a3cfe7031b9351dd3c90b223c143565c153a5f1165cd573aae1b128e6b9f557b4af4eb36da337a2a345
   languageName: node
   linkType: hard
 
