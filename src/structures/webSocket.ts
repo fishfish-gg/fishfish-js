@@ -1,12 +1,14 @@
 import type { Buffer } from 'node:buffer';
-import { setTimeout } from 'node:timers';
+import { setTimeout, setInterval } from 'node:timers';
 import WebSocket from 'ws';
-import type { Permission } from '../constants.js';
-import { WEBSOCKET_BASE_URL } from '../constants.js';
+import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
+import type { Permission } from '../enums.js';
+import { WebSocketDataTypes } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
-import type { RawDomainData, RawURLData } from '../types.js';
-import { transformData } from '../utils.js';
+import type { FishFishWebSocketData } from '../types.js';
+import { assertString, transformData } from '../utils.js';
 import type { FishFishApi, FishFishDomain, FishFishURL } from './api.js';
+import type { FishFishAuthOptions } from './auth.js';
 import { FishFishAuth } from './auth.js';
 
 /**
@@ -14,15 +16,32 @@ import { FishFishAuth } from './auth.js';
  */
 export interface FishFishWebSocketOptions {
 	/**
+	 * Authentication options.
+	 *
+	 * **Note**: If manager is provided, the auth will be taken from it and it will be preferred over this option.
+	 *
+	 * @defaultValue If manager is provided, the auth will be taken from it.
+	 */
+	auth?: FishFishAuth | FishFishAuthOptions;
+	/**
 	 * The callback to be called when a websocket receives a message.
 	 *
 	 * @param data - The data received from the WebSocket.
+	 * @defaultValue If manager is provided, it will be used to populate the cache.
 	 */
-	callback?(data: FishFishWebSocketData): void;
+	callback?(data: FishFishWebSocketData<any>): void;
 	/**
 	 * Enables debug logging.
 	 */
 	debug?: boolean;
+	/**
+	 * Whether to fetch the data periodically to avoid missing data.
+	 */
+	fetchPeriodically?: boolean;
+	/**
+	 * The identity to identify your application to the WebSocket.
+	 */
+	identity?: string;
 	/**
 	 * The Fish.Fish API instance tied to this WebSocket.
 	 */
@@ -30,28 +49,7 @@ export interface FishFishWebSocketOptions {
 	/**
 	 * The permissions to use when creating a session token.
 	 */
-	permissions: Permission[];
-}
-
-/**
- * The data received from the WebSocket.
- */
-export interface FishFishWebSocketData {
-	/**
-	 * The domains to be processed.
-	 */
-	domains: RawDomainData[];
-	/**
-	 * The type of data received.
-	 *
-	 * - `add` - Added to the database.
-	 * - `delete` - Deleted from the database.
-	 */
-	type: 'add' | 'delete';
-	/**
-	 * The URLs to be processed.
-	 */
-	urls: RawURLData[];
+	permissions?: Permission[];
 }
 
 export class FishFishWebSocket {
@@ -63,35 +61,52 @@ export class FishFishWebSocket {
 
 	private readonly manager: FishFishApi | null;
 
-	private readonly callback: (data: FishFishWebSocketData) => void;
+	private readonly fetchPeriodically: boolean;
+
+	private readonly identity: string;
+
+	private readonly callback: (data: FishFishWebSocketData<any>) => Promise<void> | void;
 
 	private tries = 0;
 
-	public constructor(apiKey: string, options: FishFishWebSocketOptions) {
-		if (!apiKey || typeof apiKey !== 'string') {
-			throw new Error(ErrorsMessages.INVALID_TYPE_STRING + typeof apiKey);
-		}
+	public constructor(options: FishFishWebSocketOptions) {
+		assertString(options.identity, 'identity');
 
 		if (options?.callback && typeof options.callback !== 'function') {
 			throw new Error(ErrorsMessages.INVALID_TYPE_FUNCTION + typeof options.callback);
 		}
 
-		if (!options?.permissions?.length) {
+		if (options?.permissions && !options?.permissions?.length) {
 			throw new Error(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
 		}
 
+		this.fetchPeriodically = options.fetchPeriodically ?? true;
+
 		this.manager = options.manager ?? null;
-		this.auth = this.manager?.auth ?? new FishFishAuth(apiKey, options.permissions);
+		this.auth =
+			this.manager?.auth ??
+			(options.auth instanceof FishFishAuth ? options.auth : new FishFishAuth(options.auth ?? {}));
 		this.debug = options.debug ?? false;
 		this.callback = options.callback?.bind(this) ?? this.defaultCallback.bind(this);
 		this.connection = null;
+
+		this.identity = this.manager?.options.identity ?? options.identity ?? DEFAULT_IDENTITY;
+
 		void this.connect();
+
+		if (this.fetchPeriodically) {
+			void this.fetch();
+		}
 	}
 
-	public async connect() {
+	public async connect(reconnect = false) {
+		this.debugLogger('Attempting to connect to WebSocket...');
+
 		this.connection = new WebSocket(WEBSOCKET_BASE_URL, {
+			auth: (await this.auth.createSessionToken()).token,
 			headers: {
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: (await this.auth.createSessionToken()).token,
+				'X-Identity': this.identity,
 			},
 		});
 
@@ -99,6 +114,11 @@ export class FishFishWebSocket {
 		this.connection.on('message', this.onMessage.bind(this));
 		this.connection.on('close', this.onClose.bind(this));
 		this.connection.on('error', this.onError.bind(this));
+
+		if (this.fetchPeriodically && reconnect) {
+			this.debugLogger('Creating fetch interval...');
+			setInterval(this.fetch.bind(this), 60 * 60 * 1_000);
+		}
 	}
 
 	private onOpen() {
@@ -114,7 +134,7 @@ export class FishFishWebSocket {
 
 	private onMessage(data: Buffer) {
 		const objData = JSON.parse(data.toString());
-		this.callback(objData);
+		void this.callback(objData);
 	}
 
 	private onClose(code: number, reason: string) {
@@ -133,7 +153,7 @@ export class FishFishWebSocket {
 		);
 
 		setTimeout(() => {
-			void this.connect();
+			void this.connect(true);
 		}, this.backOff());
 	}
 
@@ -141,34 +161,58 @@ export class FishFishWebSocket {
 		return Math.min(Math.floor(Math.exp(this.tries)), 10 * 60) * 1_000;
 	}
 
-	private defaultCallback(data: FishFishWebSocketData) {
-		this.debugLogger('Received data from WebSocket', data);
+	private defaultCallback(rawData: FishFishWebSocketData<any>) {
+		this.debugLogger('Received data from WebSocket', rawData);
+
+		if (!this.manager) return;
+
+		const { data } = rawData;
 
 		if (this.manager) {
-			switch (data.type) {
-				case 'add':
-					for (const url of data.urls) {
-						this.manager.cache.urls.set(url.url, transformData<FishFishURL>(url));
-					}
-
-					for (const domain of data.domains) {
-						this.manager.cache.domains.set(domain.domain, transformData<FishFishDomain>(domain));
-					}
+			switch (rawData.type) {
+				case WebSocketDataTypes.DomainCreate:
+					this.manager.cache.domains.set(data.domain!, transformData<FishFishDomain>(data));
 
 					break;
-				case 'delete':
-					for (const url of data.urls) {
-						this.manager.cache.urls.delete(url.url);
-					}
+				case WebSocketDataTypes.DomainDelete:
+					this.manager.cache.domains.delete(data.domain!);
 
-					for (const domain of data.domains) {
-						this.manager.cache.domains.delete(domain.domain);
-					}
+					break;
+
+				case WebSocketDataTypes.DomainUpdate:
+					// eslint-disable-next-line no-case-declarations
+					const domain = this.manager.cache.domains.get(data.domain!) ?? {};
+
+					this.manager.cache.domains.set(data.domain!, transformData<FishFishDomain>({ ...domain, ...data }));
+
+					break;
+				case WebSocketDataTypes.UrlCreate:
+					this.manager.cache.urls.set(data.url!, transformData<FishFishURL>(data));
+
+					break;
+				case WebSocketDataTypes.UrlDelete:
+					this.manager.cache.urls.delete(data.url!);
+
+					break;
+				case WebSocketDataTypes.UrlUpdate:
+					// eslint-disable-next-line no-case-declarations
+					const url = this.manager.cache.urls.get(data.url!) ?? {};
+
+					this.manager.cache.urls.set(data.url!, transformData<FishFishURL>({ ...url, ...data }));
 
 					break;
 				default:
-					this.debugLogger(`Unknown data type received ${data.type}`);
+					this.debugLogger(`Unknown data type received ${rawData.type}`);
 			}
+		}
+	}
+
+	private async fetch() {
+		this.debugLogger('Fetching data from Fish.Fish API');
+
+		if (this.manager) {
+			await this.manager.getAllUrls({});
+			await this.manager.getAllDomains({});
 		}
 	}
 
