@@ -1,4 +1,6 @@
-import type { Category } from './constants.js';
+import type { Category, Permission, WebSocketDataTypes } from './enums.js';
+
+type If<Generic, Condition, Then, Else = null> = Generic extends Condition ? Then : Else;
 
 /**
  * The response body for the `GET /status` endpoint.
@@ -169,4 +171,49 @@ export interface RawURLData {
 	 * The URL.
 	 */
 	url: string;
+}
+
+/**
+ * FishFish user information
+ */
+export interface FishFishUser {
+	/**
+	 * External service connection information
+	 */
+	external_service_id?: string;
+
+	/**
+	 * FishFish user ID
+	 */
+	id: number;
+
+	/**
+	 * User's permissions
+	 */
+	permissions: Permission[];
+
+	/**
+	 * User's username
+	 */
+	username: string;
+}
+
+export interface FishFishWebSocketData<T extends WebSocketDataTypes> {
+	data: {
+		category: Category;
+		description: string;
+		domain: If<
+			T,
+			WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate,
+			string,
+			undefined
+		>;
+		url: If<
+			T,
+			WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate,
+			string,
+			undefined
+		>;
+	};
+	type: T;
 }

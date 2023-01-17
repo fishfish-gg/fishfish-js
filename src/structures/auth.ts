@@ -1,7 +1,8 @@
+import process from 'node:process';
 import { setTimeout } from 'node:timers';
 import { request } from 'undici';
-import type { Permission } from '../constants.js';
 import { API_BASE_URL } from '../constants.js';
+import type { Permission } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
 import { assertString, validateResponse } from '../utils.js';
 
@@ -11,9 +12,24 @@ export interface CreateTokenResponseBody {
 	 */
 	expires: number;
 	/**
+	 * The id of the main token.
+	 */
+	id: string;
+	/**
 	 * The session token.
 	 */
 	token: string;
+}
+
+export interface PartialMainToken {
+	/**
+	 * The id of the main token.
+	 */
+	id: string;
+	/**
+	 * The permissions of the main token.
+	 */
+	permissions: Permission[];
 }
 
 export interface FishFishSessionToken {
@@ -31,6 +47,28 @@ export interface FishFishSessionToken {
 	token: string;
 }
 
+export interface FishFishAuthOptions {
+	/**
+	 * The API key used to authenticate requests.
+	 *
+	 * @defaultValue process.env.FISHFISH_API_KEY
+	 */
+	apiKey?: string;
+	/**
+	 * Enables debug logging.
+	 *
+	 * @defaultValue false
+	 */
+	debug?: boolean;
+	/**
+	 * The permissions to use when creating a session token.
+	 *
+	 * @defaultValue `[]`
+	 * @see https://api.fishfish.gg/v1/docs#enum-permission
+	 */
+	permissions?: Permission[];
+}
+
 export class FishFishAuth {
 	/**
 	 * The API key used to authenticate requests.
@@ -39,18 +77,17 @@ export class FishFishAuth {
 
 	private readonly _permissions: Permission[];
 
+	private readonly debug: boolean;
+
 	private _sessionToken: (Omit<FishFishSessionToken, 'expires'> & { expires: number }) | null;
 
-	public constructor(apiKey: string, permissions: Permission[]) {
-		assertString(apiKey);
+	public constructor({ apiKey, debug = false, permissions }: FishFishAuthOptions = {}) {
+		assertString(apiKey ?? process.env.FISHFISH_API_KEY, 'apiKey', ErrorsMessages.MISSING_API_KEY);
 
-		if (!permissions?.length) {
-			throw new Error(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
-		}
-
-		this.apiKey = apiKey;
+		this.apiKey = apiKey ?? process.env.FISHFISH_API_KEY!;
+		this.debug = debug;
 		this._sessionToken = null;
-		this._permissions = permissions;
+		this._permissions = permissions ?? [];
 	}
 
 	/**
@@ -84,8 +121,9 @@ export class FishFishAuth {
 	 * @returns The session token.
 	 * @throws Error if the status code is not 200.
 	 */
-	public async getSessionToken(permissions: Permission[] = this._permissions): Promise<FishFishSessionToken> {
+	public async createSessionToken(permissions: Permission[] = this._permissions): Promise<FishFishSessionToken> {
 		if (this._sessionToken) {
+			this.debugLogger('Session token already exist, returning it.');
 			return this._transformSessionToken(this._sessionToken);
 		}
 
@@ -111,6 +149,8 @@ export class FishFishAuth {
 
 		this._createExpireTimeout();
 
+		this.debugLogger('Created session token.', { expire: this._sessionToken.expires * 1_000 });
+
 		return this._transformSessionToken(this._sessionToken);
 	}
 
@@ -130,5 +170,11 @@ export class FishFishAuth {
 			expires: new Date(token.expires * 1_000),
 			permissions: token.permissions,
 		};
+	}
+
+	private debugLogger(message: string, ...args: unknown[]) {
+		if (this.debug) {
+			console.log(`[Auth: debug]: ${message}`, ...args);
+		}
 	}
 }
