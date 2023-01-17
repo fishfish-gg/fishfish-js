@@ -1,6 +1,7 @@
 import { URLSearchParams } from 'node:url';
 import { request } from 'undici';
-import { type Category, Permission, API_BASE_URL } from '../constants.js';
+import { API_BASE_URL, DEFAULT_IDENTITY } from '../constants.js';
+import { Category, Permission } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
 import type {
 	ApiStatusResponse,
@@ -12,6 +13,7 @@ import type {
 	UpdateURLRequest,
 } from '../types.js';
 import { assertString, transformData, validateResponse } from '../utils.js';
+import type { FishFishAuthOptions } from './auth.js';
 import { FishFishAuth } from './auth.js';
 
 /**
@@ -19,13 +21,9 @@ import { FishFishAuth } from './auth.js';
  */
 export interface FishFishDomain extends Omit<RawDomainData, 'added' | 'checked'> {
 	/**
-	 * The date this domain was added to the API.
+	 * The date this domain was added/last updated in the API.
 	 */
-	added: Date;
-	/**
-	 * The date this domain was last checked.
-	 */
-	checked: Date;
+	lastChecked: Date;
 }
 
 /**
@@ -46,13 +44,13 @@ interface GetOptions {
 	/**
 	 * Whether to to cache the response.
 	 *
-	 * **Default:** `true`
+	 * @defaultValue `true`
 	 */
 	cache?: boolean;
 	/**
 	 * Whether to return skip the cache.
 	 *
-	 * **Default:** `false`
+	 * @defaultValue `false`
 	 */
 	force?: boolean;
 }
@@ -61,26 +59,34 @@ interface GetAllOptions {
 	/**
 	 * Whether to to cache the responses.
 	 *
-	 * **Default:** `true`
+	 * @defaultValue `true`
 	 */
 	cache?: boolean;
 	/**
 	 * The category to filter by.
+	 *
+	 * @defaultValue `phishing`
 	 */
-	category: Category;
+	category?: Category;
 	/**
 	 * Whether to return the full information or only the domain name.
 	 *
-	 * **Default:** `false`
+	 * @defaultValue `false`
 	 */
 	full?: boolean;
 }
 
 interface FishFishApiOptions {
 	/**
+	 * The auth instance.
+	 *
+	 * @see FishFishAuth
+	 */
+	auth: FishFishAuth | FishFishAuthOptions;
+	/**
 	 * Enable the cache.
 	 *
-	 * **Default:** `true`
+	 * @defaultValue `true`
 	 */
 	cache?: boolean;
 	/**
@@ -90,9 +96,13 @@ interface FishFishApiOptions {
 	/**
 	 * Only caches full responses.
 	 *
-	 * **Default:** `false`
+	 * @defaultValue `false`
 	 */
 	doNotCachePartial?: boolean;
+	/**
+	 * Identity for all fetches and webSocket connections.
+	 */
+	identity?: string;
 	/**
 	 * Default permissions for the session token.
 	 */
@@ -100,7 +110,7 @@ interface FishFishApiOptions {
 	/**
 	 * Enables the webSocket connection.
 	 *
-	 * **Default:** `true`
+	 * @defaultValue `false`
 	 */
 	webSocket?: boolean;
 }
@@ -118,7 +128,7 @@ export class FishFishApi {
 	 */
 	public readonly auth: FishFishAuth;
 
-	private readonly _options: FishFishApiOptions;
+	private readonly _options: Omit<FishFishApiOptions, 'auth'>;
 
 	/**
 	 * Get a list of all domains in the database.
@@ -126,7 +136,7 @@ export class FishFishApi {
 	 * @param category - category The category to filter by.
 	 * @throws Error if the status code is not 200.
 	 */
-	public static async getAllDomains(category: Category): Promise<string[]> {
+	public static async getAllDomains(category = Category.Phishing): Promise<string[]> {
 		const params = new URLSearchParams();
 		params.append('category', category);
 		params.append('full', String(false));
@@ -143,7 +153,7 @@ export class FishFishApi {
 	 * @param category - category The category to filter by.
 	 * @throws Error if the status code is not 200.
 	 */
-	public static async getAllUrls(category: Category): Promise<string[]> {
+	public static async getAllUrls(category = Category.Phishing): Promise<string[]> {
 		const params = new URLSearchParams();
 		params.append('category', category);
 		params.append('full', String(false));
@@ -190,25 +200,26 @@ export class FishFishApi {
 		return response.body.json() as Promise<FishFishURL>;
 	}
 
-	public constructor(apiKey: string, options: FishFishApiOptions) {
-		assertString(apiKey);
-
-		if (!Reflect.has(options ?? {}, 'permissions') || !options.permissions?.length) {
-			throw new Error(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
-		}
-
-		this.auth = new FishFishAuth(apiKey, options.permissions);
+	public constructor(options: FishFishApiOptions) {
+		this.auth = options.auth instanceof FishFishAuth ? options.auth : new FishFishAuth(options.auth);
 
 		this._options = {
 			cache: options.cache ?? true,
 			doNotCachePartial: options.doNotCachePartial ?? false,
 			permissions: options.permissions,
+			debug: options.debug ?? false,
+			identity: options.identity ?? DEFAULT_IDENTITY,
+			webSocket: options.webSocket ?? false,
 		};
 
 		this._cache = {
 			domains: new Map(),
 			urls: new Map(),
 		};
+	}
+
+	private async getSessionToken(): Promise<string> {
+		return (await this.auth.createSessionToken()).token;
 	}
 
 	/**
@@ -271,7 +282,7 @@ export class FishFishApi {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 			body: JSON.stringify(data),
 		});
@@ -338,7 +349,7 @@ export class FishFishApi {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 			body: JSON.stringify(data),
 		});
@@ -367,7 +378,7 @@ export class FishFishApi {
 		const response = await request(`${API_BASE_URL}/domains/${domain}`, {
 			method: 'DELETE',
 			headers: {
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 		});
 
@@ -389,28 +400,25 @@ export class FishFishApi {
 	public async getAllDomains(options: GetAllOptions & { full: true }): Promise<FishFishDomain[]>;
 	public async getAllDomains(options: GetAllOptions & { full?: false }): Promise<string[]>;
 	public async getAllDomains(options: GetAllOptions): Promise<FishFishDomain[] | string[]> {
-		if (!options || !options.category) {
-			throw new Error(ErrorsMessages.MISSING_CATEGORY);
-		}
-
 		const _options = {
 			cache: true,
 			full: false,
+			category: Category.Phishing,
 			...options,
 		} as GetAllOptions;
 
 		if (options.full) {
-			await this._assertToken(Permission.Domains);
+			await this._assertToken();
 		}
 
 		const params = new URLSearchParams();
-		params.append('category', _options.category);
+		params.append('category', _options.category ?? Category.Phishing);
 		params.append('full', _options.full!.toString());
 
 		const response = await request(`${API_BASE_URL}/domains?${params.toString()}`, {
 			method: 'GET',
 			headers: {
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 		});
 
@@ -446,7 +454,7 @@ export class FishFishApi {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 			body: JSON.stringify(data),
 		});
@@ -513,7 +521,7 @@ export class FishFishApi {
 			method: 'PATCH',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 			body: JSON.stringify(data),
 		});
@@ -537,29 +545,27 @@ export class FishFishApi {
 	 */
 	public async getAllUrls(_options: GetAllOptions & { full: true }): Promise<FishFishURL[]>;
 	public async getAllUrls(_options: GetAllOptions & { full?: false }): Promise<string[]>;
-	public async getAllUrls(_options: GetAllOptions): Promise<FishFishURL[] | string[]> {
-		if (!_options || !_options.category) {
-			throw new Error(ErrorsMessages.MISSING_CATEGORY);
-		}
-
+	public async getAllUrls(_options: GetAllOptions | undefined = {}): Promise<FishFishURL[] | string[]> {
 		const options = {
 			cache: true,
 			full: false,
+			category: Category.Phishing,
 			..._options,
 		} as GetAllOptions;
 
 		if (options.full) {
-			await this._assertToken(Permission.Urls);
+			await this._assertToken();
 		}
 
 		const params = new URLSearchParams();
-		params.append('category', options.category);
+		params.append('category', options.category!);
 		params.append('full', options.full!.toString());
 
 		const response = await request(`${API_BASE_URL}/urls?${params.toString()}`, {
 			method: 'GET',
 			headers: {
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
+				'X-Identity': this._options.identity,
 			},
 		});
 
@@ -589,7 +595,7 @@ export class FishFishApi {
 		const response = await request(`${API_BASE_URL}/urls/${encodeURI(url)}`, {
 			method: 'DELETE',
 			headers: {
-				Authorization: (await this.auth.getSessionToken()).token,
+				Authorization: await this.getSessionToken(),
 			},
 		});
 
@@ -602,10 +608,10 @@ export class FishFishApi {
 		return true;
 	}
 
-	private async _assertToken(permission: Permission) {
-		await this.auth.getSessionToken();
+	private async _assertToken(permission?: Permission) {
+		await this.auth.createSessionToken();
 
-		if (!this.auth.checkTokenPermissions(permission)) {
+		if (permission && !this.auth.checkTokenPermissions(permission)) {
 			throw new Error(ErrorsMessages.SESSION_TOKEN_NO_PERMISSION);
 		}
 	}
