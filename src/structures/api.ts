@@ -82,7 +82,7 @@ interface FishFishApiOptions {
 	 *
 	 * @see FishFishAuth
 	 */
-	auth: FishFishAuth | FishFishAuthOptions;
+	auth?: FishFishAuth | FishFishAuthOptions;
 	/**
 	 * Enable the cache.
 	 *
@@ -196,7 +196,7 @@ export class FishFishApi {
 		return response.body.json() as Promise<FishFishURL>;
 	}
 
-	public constructor(options: FishFishApiOptions) {
+	public constructor(options: FishFishApiOptions = {}) {
 		this.auth = options.auth instanceof FishFishAuth ? options.auth : new FishFishAuth(options.auth);
 
 		this._options = {
