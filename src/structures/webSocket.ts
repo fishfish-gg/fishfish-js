@@ -5,8 +5,9 @@ import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
 import { WebSocketDataTypes } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
 import type { FishFishWebSocketData } from '../types.js';
-import { assertString, transformData } from '../utils.js';
-import type { FishFishApi, FishFishDomain, FishFishURL } from './api.js';
+import { transformData } from '../utils.js';
+import type { FishFishDomain, FishFishURL } from './api.js';
+import { FishFishApi } from './api.js';
 import type { FishFishAuthOptions } from './auth.js';
 import { FishFishAuth } from './auth.js';
 
@@ -64,21 +65,35 @@ export class FishFishWebSocket {
 
 	private tries = 0;
 
-	public constructor(options: FishFishWebSocketOptions) {
-		assertString(options.identity, 'identity');
+	public constructor(options: FishFishWebSocketOptions = {}) {
+		if (typeof options !== 'object') {
+			throw new TypeError(ErrorsMessages.INVALID_OPTIONS);
+		}
 
 		if (options?.callback && typeof options.callback !== 'function') {
 			throw new Error(ErrorsMessages.INVALID_CALLBACK + typeof options.callback);
 		}
 
+		if (options.manager && !(options.manager instanceof FishFishApi)) {
+			throw new Error(ErrorsMessages.INVALID_MANAGER);
+		}
+
+		if (options.identity && typeof options.identity !== 'string') {
+			throw new Error(ErrorsMessages.INVALID_TYPE_STRING + typeof options.identity + ' for identity');
+		}
+
 		this.fetchPeriodically = options.fetchPeriodically ?? true;
 
 		this.manager = options.manager ?? null;
+
 		this.auth =
 			this.manager?.auth ??
 			(options.auth instanceof FishFishAuth ? options.auth : new FishFishAuth(options.auth ?? {}));
+
 		this.debug = options.debug ?? false;
+
 		this.callback = options.callback?.bind(this) ?? this.defaultCallback.bind(this);
+
 		this.connection = null;
 
 		this.identity = this.manager?.options.identity ?? options.identity ?? DEFAULT_IDENTITY;
