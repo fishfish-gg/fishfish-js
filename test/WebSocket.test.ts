@@ -2,14 +2,27 @@ import { expect, test } from 'vitest';
 import { ErrorsMessages, FishFishWebSocket, Permission } from '../dist/index.js';
 
 test('Test: Constructor validation', async () => {
-	// @ts-expect-error: Invalid API key test
-	expect(() => new FishFishWebSocket()).toThrowError((ErrorsMessages.INVALID_TYPE_STRING as string) + 'undefined');
-	// @ts-expect-error: Invalid options test
-	expect(() => new FishFishWebSocket('super-valid-api-key')).toThrowError(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
+	expect(
+		() =>
+			new FishFishWebSocket({
+				auth: {
+					apiKey: 'super-valid-api-key',
+				},
+			}),
+	).not.toThrowError();
+
+	expect(() => new FishFishWebSocket()).toThrowError(ErrorsMessages.MISSING_API_KEY);
+
 	// @ts-expect-error: Invalid options test (callback)
-	expect(() => new FishFishWebSocket('super-valid-api-key', { callback: 'not-a-function' })).toThrowError(
-		(ErrorsMessages.INVALID_TYPE_FUNCTION as string) + 'string',
+	expect(() => new FishFishWebSocket({ callback: 'not-a-function' })).toThrowError(
+		(ErrorsMessages.INVALID_CALLBACK as string) + 'string',
 	);
 
-	expect(() => new FishFishWebSocket('super-valid-api-key', { permissions: [Permission.Urls] })).not.toThrowError();
+	expect(
+		() =>
+			new FishFishWebSocket({
+				// @ts-expect-error: Invalid options test (manager)
+				manager: 'totally-valid-manager',
+			}),
+	).toThrowError(ErrorsMessages.INVALID_MANAGER);
 });

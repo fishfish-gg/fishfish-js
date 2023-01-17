@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { setTimeout as wait } from 'node:timers/promises';
 import type { Interceptable } from 'undici';
 import { MockAgent, setGlobalDispatcher } from 'undici';
@@ -27,16 +28,26 @@ afterEach(async () => {
 });
 
 test('Test: Constructor validation', async () => {
-	// @ts-expect-error: Invalid API key test
-	expect(() => new FishFishAuth()).toThrowError((ErrorsMessages.INVALID_TYPE_STRING as string) + 'undefined');
-	// @ts-expect-error: Invalid options test
-	expect(() => new FishFishAuth('super-valid-api-key')).toThrowError(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
+	expect(() => new FishFishAuth()).toThrowError(ErrorsMessages.MISSING_API_KEY);
 
-	expect(() => new FishFishAuth('super-valid-api-key', [Permission.Urls])).not.toThrowError();
+	expect(
+		() =>
+			new FishFishAuth({
+				apiKey: 'super-valid-api-key',
+				permissions: [Permission.Domains],
+			}),
+	).not.toThrowError();
+
+	process.env.FISHFISH_API_KEY = 'super-valid-api-key';
+
+	expect(() => new FishFishAuth()).not.toThrowError();
 });
 
 test('Test: Create token validation', async () => {
-	const auth = new FishFishAuth('super-valid-api-key', [Permission.Domains]);
+	const auth = new FishFishAuth({
+		apiKey: 'super-valid-api-key',
+		permissions: [Permission.Domains],
+	});
 
 	const expires = Math.floor(Date.now() / 1_000) + 1_000;
 
@@ -54,7 +65,7 @@ test('Test: Create token validation', async () => {
 			...responseOptions,
 		}));
 
-	expect(await auth.getSessionToken()).toStrictEqual({
+	expect(await auth.createSessionToken()).toStrictEqual({
 		expires: new Date(expires * 1_000),
 		token: 'super-valid-session-token',
 		permissions: [Permission.Domains],
@@ -62,7 +73,10 @@ test('Test: Create token validation', async () => {
 });
 
 test('Test: validateResponse', async () => {
-	const api = new FishFishAuth('super-valid-api-key', [Permission.Domains]);
+	const api = new FishFishAuth({
+		apiKey: 'super-valid-api-key',
+		permissions: [Permission.Domains],
+	});
 
 	mockPool
 		.intercept({
@@ -74,7 +88,7 @@ test('Test: validateResponse', async () => {
 		}))
 		.times(1);
 
-	await expect(async () => api.getSessionToken()).rejects.toThrowError(ErrorsMessages.API_KEY_UNAUTHORIZED);
+	await expect(async () => api.createSessionToken()).rejects.toThrowError(ErrorsMessages.API_KEY_UNAUTHORIZED);
 
 	mockPool
 		.intercept({
@@ -86,7 +100,7 @@ test('Test: validateResponse', async () => {
 		}))
 		.times(1);
 
-	await expect(async () => api.getSessionToken()).rejects.toThrowError(ErrorsMessages.RATE_LIMITED);
+	await expect(async () => api.createSessionToken()).rejects.toThrowError(ErrorsMessages.RATE_LIMITED);
 
 	mockPool
 		.intercept({
@@ -99,7 +113,7 @@ test('Test: validateResponse', async () => {
 		}))
 		.times(1);
 
-	await expect(async () => api.getSessionToken()).rejects.toThrowError('Unexpected status code 404: Not found');
+	await expect(async () => api.createSessionToken()).rejects.toThrowError('Unexpected status code 404: Not found');
 
 	mockPool
 		.intercept({
@@ -116,11 +130,14 @@ test('Test: validateResponse', async () => {
 		}))
 		.times(1);
 
-	await expect(api.getSessionToken()).resolves.not.toThrowError();
+	await expect(api.createSessionToken()).resolves.not.toThrowError();
 });
 
 test('Test: Expire token', async () => {
-	const auth = new FishFishAuth('super-valid-api-key', [Permission.Domains]);
+	const auth = new FishFishAuth({
+		apiKey: 'super-valid-api-key',
+		permissions: [Permission.Domains],
+	});
 
 	mockPool
 		.intercept({
@@ -137,7 +154,7 @@ test('Test: Expire token', async () => {
 		}))
 		.times(1);
 
-	await expect(auth.getSessionToken()).resolves.toStrictEqual({
+	await expect(auth.createSessionToken()).resolves.toStrictEqual({
 		expires: expect.any(Date),
 		token: 'super-valid-session-token',
 		permissions: [Permission.Domains],

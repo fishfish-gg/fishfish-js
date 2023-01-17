@@ -1,8 +1,9 @@
+import process from 'node:process';
 import type { Interceptable } from 'undici';
 import { MockAgent, setGlobalDispatcher } from 'undici';
 import type { MockInterceptor } from 'undici/types/mock-interceptor.js';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { Category, ErrorsMessages, FishFishApi, Permission } from '../dist/index.js';
+import { Category, ErrorsMessages, FishFishApi, FishFishAuth, Permission } from '../dist/index.js';
 import { createRandomRawData, createRandomStringData } from './data.js';
 
 const ScamDomains = createRandomStringData(Category.Phishing, 'domain');
@@ -30,12 +31,17 @@ afterEach(async () => {
 });
 
 test('Test: Constructor validation', async () => {
-	// @ts-expect-error: Invalid API key test
-	expect(() => new FishFishApi()).toThrowError((ErrorsMessages.INVALID_TYPE_STRING as string) + 'undefined');
-	// @ts-expect-error: Invalid options test
-	expect(() => new FishFishApi('super-valid-api-key')).toThrowError(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
+	expect(() => new FishFishApi()).toThrowError(ErrorsMessages.MISSING_API_KEY);
 
-	expect(() => new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Urls] })).not.toThrowError();
+	expect(() => new FishFishApi({ auth: { apiKey: 'super-valid-api-key' } })).not.toThrowError();
+
+	expect(
+		() => new FishFishApi({ auth: { apiKey: 'super-valid-api-key', permissions: [Permission.Urls] } }),
+	).not.toThrowError();
+
+	process.env.FISHFISH_API_KEY = 'super-valid-api-key';
+
+	expect(() => new FishFishApi()).not.toThrowError();
 });
 
 test('Test: Static properties', async () => {
@@ -140,33 +146,55 @@ test('Test: Missing permissions error', async () => {
 		}))
 		.times(1);
 
-	const domainApi = new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Domains] });
+	const domainApi = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+			permissions: [Permission.Domains],
+		},
+	});
 	await expect(async () => domainApi.deleteURL('test-url-delete')).rejects.toThrowError(
 		ErrorsMessages.SESSION_TOKEN_NO_PERMISSION,
 	);
+
 	await expect(domainApi.getURL('test-url-get')).resolves.not.toThrowError();
+
 	await expect(async () =>
 		domainApi.insertURL('test-url-insert', { category: Category.Malware, description: 'Bad url' }),
 	).rejects.toThrowError(ErrorsMessages.SESSION_TOKEN_NO_PERMISSION);
+
 	await expect(async () => domainApi.patchURL('test-url-patch', { category: Category.Malware })).rejects.toThrowError(
 		ErrorsMessages.SESSION_TOKEN_NO_PERMISSION,
 	);
 
-	const urlApi = new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Urls] });
+	const urlApi = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+			permissions: [Permission.Urls],
+		},
+	});
+
 	await expect(async () => urlApi.deleteDomain('test-domain-delete')).rejects.toThrowError(
 		ErrorsMessages.SESSION_TOKEN_NO_PERMISSION,
 	);
+
 	await expect(urlApi.getDomain('test-domain-get')).resolves.not.toThrowError();
+
 	await expect(async () =>
 		urlApi.insertDomain('test-domain-insert', { category: Category.Malware, description: 'Bad domain' }),
 	).rejects.toThrowError(ErrorsMessages.SESSION_TOKEN_NO_PERMISSION);
+
 	await expect(async () =>
 		urlApi.patchDomain('test-domain-patch', { category: Category.Malware }),
 	).rejects.toThrowError(ErrorsMessages.SESSION_TOKEN_NO_PERMISSION);
 });
 
 test('Test: Unauthorized session token', async () => {
-	const api = new FishFishApi('super-valid-api-key', { defaultPermissions: [Permission.Domains] });
+	const api = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+			permissions: [Permission.Domains],
+		},
+	});
 
 	mockPool
 		.intercept({
