@@ -1,19 +1,20 @@
 import type { Dispatcher } from 'undici';
 import { ErrorsMessages } from './errors.js';
 import type { FishFishDomain, FishFishURL } from './structures/api.js';
-import type { RawDomainData, RawURLData } from './types.js';
+import type { FishFishWebSocketData } from './types.js';
 
-export function assertString(value: unknown): asserts value is string {
+export function assertString(value: unknown, prop?: string, errorMessage?: ErrorsMessages): asserts value is string {
 	if (typeof value !== 'string') {
-		throw new TypeError(ErrorsMessages.INVALID_TYPE_STRING + typeof value);
+		throw new TypeError(
+			errorMessage ?? ErrorsMessages.INVALID_TYPE_STRING + typeof value + (prop ? `(Property: ${prop})` : ''),
+		);
 	}
 }
 
-export function transformData<T = FishFishDomain | FishFishURL>(data: RawDomainData | RawURLData): T {
+export function transformData<T = FishFishDomain | FishFishURL>(data: FishFishWebSocketData<any>['data']): T {
 	return {
 		...data,
-		added: new Date(data.added * 1_000),
-		checked: new Date(data.checked * 1_000),
+		lastUpdated: new Date(),
 	} as unknown as T;
 }
 
