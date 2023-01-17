@@ -2,7 +2,6 @@ import type { Buffer } from 'node:buffer';
 import { setTimeout, setInterval } from 'node:timers';
 import WebSocket from 'ws';
 import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
-import type { Permission } from '../enums.js';
 import { WebSocketDataTypes } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
 import type { FishFishWebSocketData } from '../types.js';
@@ -46,10 +45,6 @@ export interface FishFishWebSocketOptions {
 	 * The Fish.Fish API instance tied to this WebSocket.
 	 */
 	manager?: FishFishApi;
-	/**
-	 * The permissions to use when creating a session token.
-	 */
-	permissions?: Permission[];
 }
 
 export class FishFishWebSocket {
@@ -73,11 +68,7 @@ export class FishFishWebSocket {
 		assertString(options.identity, 'identity');
 
 		if (options?.callback && typeof options.callback !== 'function') {
-			throw new Error(ErrorsMessages.INVALID_TYPE_FUNCTION + typeof options.callback);
-		}
-
-		if (options?.permissions && !options?.permissions?.length) {
-			throw new Error(ErrorsMessages.MISSING_DEFAULT_PERMISSIONS);
+			throw new Error(ErrorsMessages.INVALID_CALLBACK + typeof options.callback);
 		}
 
 		this.fetchPeriodically = options.fetchPeriodically ?? true;

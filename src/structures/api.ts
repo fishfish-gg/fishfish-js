@@ -104,10 +104,6 @@ interface FishFishApiOptions {
 	 */
 	identity?: string;
 	/**
-	 * Default permissions for the session token.
-	 */
-	permissions: Permission[];
-	/**
 	 * Enables the webSocket connection.
 	 *
 	 * @defaultValue `false`
@@ -206,7 +202,6 @@ export class FishFishApi {
 		this._options = {
 			cache: options.cache ?? true,
 			doNotCachePartial: options.doNotCachePartial ?? false,
-			permissions: options.permissions,
 			debug: options.debug ?? false,
 			identity: options.identity ?? DEFAULT_IDENTITY,
 			webSocket: options.webSocket ?? false,
@@ -273,7 +268,7 @@ export class FishFishApi {
 	 */
 	public async insertDomain(domain: string, data: CreateDomainRequest): Promise<FishFishDomain> {
 		await this._assertToken(Permission.Domains);
-		assertString(domain);
+		assertString(domain, 'domain');
 		if (!Reflect.has(data ?? {}, 'category') || !Reflect.has(data ?? {}, 'description')) {
 			throw new Error(ErrorsMessages.MISSING_FIELD_CREATE);
 		}
