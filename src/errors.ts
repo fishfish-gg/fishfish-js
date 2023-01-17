@@ -2,6 +2,8 @@ export enum ErrorsMessages {
 	API_KEY_UNAUTHORIZED = 'The API key provided is invalid or does not have the required permissions.',
 	CACHE_DISABLED = "Cannot get cache because it's explicitly disabled.",
 	INVALID_CALLBACK = 'The callback provided is not a function, recieved: ',
+	INVALID_MANAGER = 'The manager provided is not a valid FishFishApi instance.',
+	INVALID_OPTIONS = 'Options need to be an object.',
 	INVALID_TYPE_FUNCTION = 'Expected a function but received: ',
 	INVALID_TYPE_STRING = 'Expected a string but received: ',
 	MISSING_ADMIN_PERMISSIONS = 'You need admin permissions to perform any action on the admin module.',
