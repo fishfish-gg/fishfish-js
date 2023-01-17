@@ -3,6 +3,8 @@ export enum ErrorsMessages {
 	CACHE_DISABLED = "Cannot get cache because it's explicitly disabled.",
 	INVALID_TYPE_FUNCTION = 'Expected a function but received: ',
 	INVALID_TYPE_STRING = 'Expected a string but received: ',
+	MISSING_ADMIN_PERMISSIONS = 'You need admin permissions to perform any action on the admin module.',
+	MISSING_API_KEY = "You need to provide an API key or use the 'FISHFISH_API_KEY' env.",
 	MISSING_CATEGORY = 'You need to provide a category to fetch all entries.',
 	MISSING_DEFAULT_PERMISSIONS = 'You need to provide at least one permission for the session token.',
 	MISSING_FIELD_CREATE = 'The category and description fields are required when creating a new entry.',
