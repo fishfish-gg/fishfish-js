@@ -1,7 +1,7 @@
 {
 	"name": "fishfish-js",
 	"version": "1.0.0",
-	"description": "",
+	"description": "JavaScript wrapper for the fishfish.gg API",
 	"scripts": {
 		"test": "vitest run",
 		"build:clean": "del-cli dist",
@@ -12,8 +12,7 @@
 		"lint": "prettier --check . && eslint src --ext ts",
 		"format": "prettier --write . && eslint src --ext ts --fix",
 		"fmt": "yarn format",
-		"prepack": "yarn build && yarn lint",
-		"postinstall": "swc ./src --out-dir ./dist"
+		"prepack": "yarn build && yarn lint"
 	},
 	"type": "module",
 	"keywords": [
@@ -22,18 +21,25 @@
 		"api",
 		"wrapper"
 	],
-	"author": "JPBM135 <jpedrobm0@gmail.com>",
+	"author": "fishfish-gg <admin@fishfish.gg>",
+	"contributors": [
+		"JPBM135 <jpedrobm0@gmail.com>"
+	],
 	"license": "AGPL-3.0",
-	"dependencies": {
-		"undici": "^5.15.0",
-		"ws": "^8.12.0"
-	},
+	"module": "./dist/index.js",
+	"typings": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"import": "./dist/index.js",
-			"require": "./dist/index.js"
+			"types": "./dist/index.d.ts"
 		},
-		"./package.json": "./package.json"
+		"./types": {
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"dependencies": {
+		"undici": "^5.15.0",
+		"ws": "^8.12.0"
 	},
 	"devDependencies": {
 		"@swc/cli": "^0.1.57",
