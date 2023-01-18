@@ -170,7 +170,7 @@ export class FishFishApi {
 	 * @throws Error if the status code is not 200.
 	 */
 	public static async getDomain(domain: string): Promise<FishFishDomain> {
-		assertString(domain);
+		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
 
 		const response = await request(`${API_BASE_URL}/domains/${domain}`, {
 			method: 'GET',
@@ -188,7 +188,7 @@ export class FishFishApi {
 	 * @throws Error if the status code is not 200.
 	 */
 	public static async getUrl(url: string): Promise<FishFishURL> {
-		assertString(url);
+		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
 
 		const response = await request(`${API_BASE_URL}/urls/${url}`, {
 			method: 'GET',
@@ -287,7 +287,7 @@ export class FishFishApi {
 	 */
 	public async insertDomain(domain: string, data: CreateDomainRequest): Promise<FishFishDomain> {
 		await this._assertToken(Permission.Domains);
-		assertString(domain, 'domain');
+		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
 		if (!Reflect.has(data ?? {}, 'category') || !Reflect.has(data ?? {}, 'description')) {
 			throw new Error(ErrorsMessages.MISSING_FIELD_CREATE);
 		}
@@ -323,7 +323,7 @@ export class FishFishApi {
 	 * @throws Error if the status code is not 200.
 	 */
 	public async getDomain(domain: string, options?: GetOptions): Promise<FishFishDomain> {
-		assertString(domain);
+		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
 		const cached = this.cache.domains.get(domain);
 
 		const _options = {
@@ -354,7 +354,7 @@ export class FishFishApi {
 	 */
 	public async patchDomain(domain: string, data: UpdateDomainRequest): Promise<FishFishDomain> {
 		await this._assertToken(Permission.Domains);
-		assertString(domain);
+		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
 		if (Object.keys(data).length === 0) {
 			throw new Error(ErrorsMessages.MISSING_FIELD_UPDATE);
 		}
@@ -388,7 +388,7 @@ export class FishFishApi {
 	 */
 	public async deleteDomain(domain: string) {
 		await this._assertToken(Permission.Domains);
-		assertString(domain);
+		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
 		const response = await request(`${API_BASE_URL}/domains/${domain}`, {
 			method: 'DELETE',
 			headers: {
@@ -459,7 +459,7 @@ export class FishFishApi {
 	 */
 	public async insertURL(url: string, data: CreateURLRequest): Promise<FishFishURL> {
 		await this._assertToken(Permission.Urls);
-		assertString(url);
+		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
 		if (!Reflect.has(data ?? {}, 'category') || !Reflect.has(data ?? {}, 'description')) {
 			throw new Error(ErrorsMessages.MISSING_FIELD_CREATE);
 		}
@@ -495,7 +495,7 @@ export class FishFishApi {
 	 * @throws Error if the status code is not 200.
 	 */
 	public async getURL(url: string, options?: GetOptions): Promise<FishFishURL> {
-		assertString(url);
+		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
 		const cached = this.cache.urls.get(url);
 
 		const _options = {
@@ -526,7 +526,7 @@ export class FishFishApi {
 	 */
 	public async patchURL(url: string, data: UpdateURLRequest): Promise<FishFishURL> {
 		await this._assertToken(Permission.Urls);
-		assertString(url);
+		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
 		if (Object.keys(data).length === 0) {
 			throw new Error(ErrorsMessages.MISSING_FIELD_UPDATE);
 		}
@@ -605,7 +605,7 @@ export class FishFishApi {
 	 */
 	public async deleteURL(url: string) {
 		await this._assertToken(Permission.Urls);
-		assertString(url);
+		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
 		const response = await request(`${API_BASE_URL}/urls/${encodeURI(url)}`, {
 			method: 'DELETE',
 			headers: {

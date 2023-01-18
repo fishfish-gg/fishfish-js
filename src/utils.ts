@@ -3,11 +3,9 @@ import { ErrorsMessages } from './errors.js';
 import type { FishFishDomain, FishFishURL } from './structures/api.js';
 import type { FishFishWebSocketData } from './types.js';
 
-export function assertString(value: unknown, prop?: string, errorMessage?: ErrorsMessages): asserts value is string {
+export function assertString(value: unknown, errorMessage?: ErrorsMessages): asserts value is string {
 	if (typeof value !== 'string') {
-		throw new TypeError(
-			errorMessage ?? ErrorsMessages.INVALID_TYPE_STRING + typeof value + (prop ? `(Property: ${prop})` : ''),
-		);
+		throw new TypeError((errorMessage ?? ErrorsMessages.INVALID_TYPE_STRING) + typeof value);
 	}
 }
 
