@@ -15,6 +15,7 @@ import type {
 import { assertString, transformData, validateResponse } from '../utils.js';
 import type { FishFishAuthOptions } from './auth.js';
 import { FishFishAuth } from './auth.js';
+import { FishFishWebSocket } from './webSocket.js';
 
 /**
  * The formatted data for a Domain sent by the API.
@@ -126,6 +127,8 @@ export class FishFishApi {
 
 	private readonly _options: Omit<FishFishApiOptions, 'auth'>;
 
+	private readonly _webSocket: FishFishWebSocket | null;
+
 	/**
 	 * Get a list of all domains in the database.
 	 *
@@ -207,6 +210,13 @@ export class FishFishApi {
 			webSocket: options.webSocket ?? false,
 		};
 
+		this._webSocket = this._options.webSocket
+			? new FishFishWebSocket({
+					manager: this,
+					debug: this._options.debug,
+			  })
+			: null;
+
 		this._cache = {
 			domains: new Map(),
 			urls: new Map(),
@@ -215,6 +225,15 @@ export class FishFishApi {
 
 	private async getSessionToken(): Promise<string> {
 		return (await this.auth.createSessionToken()).token;
+	}
+
+	/**
+	 * Get the webSocket instance if enabled.
+	 *
+	 * @returns The webSocket instance or null.
+	 */
+	public get webSocket(): FishFishWebSocket | null {
+		return this._webSocket;
 	}
 
 	/**
@@ -392,9 +411,9 @@ export class FishFishApi {
 	 * @param options - The options to use.
 	 * @throws Error if the status code is not 200.
 	 */
-	public async getAllDomains(options: GetAllOptions & { full: true }): Promise<FishFishDomain[]>;
-	public async getAllDomains(options: GetAllOptions & { full?: false }): Promise<string[]>;
-	public async getAllDomains(options: GetAllOptions): Promise<FishFishDomain[] | string[]> {
+	public async getAllDomains(options?: GetAllOptions & { full: true }): Promise<FishFishDomain[]>;
+	public async getAllDomains(options?: GetAllOptions & { full?: false }): Promise<string[]>;
+	public async getAllDomains(options: GetAllOptions = {}): Promise<FishFishDomain[] | string[]> {
 		const _options = {
 			cache: true,
 			full: false,
@@ -402,7 +421,7 @@ export class FishFishApi {
 			...options,
 		} as GetAllOptions;
 
-		if (options.full) {
+		if (_options.full) {
 			await this._assertToken();
 		}
 
@@ -538,23 +557,23 @@ export class FishFishApi {
 	 * @param options - The options to use.
 	 * @throws Error if the status code is not 200.
 	 */
-	public async getAllUrls(_options: GetAllOptions & { full: true }): Promise<FishFishURL[]>;
-	public async getAllUrls(_options: GetAllOptions & { full?: false }): Promise<string[]>;
-	public async getAllUrls(_options: GetAllOptions | undefined = {}): Promise<FishFishURL[] | string[]> {
-		const options = {
+	public async getAllUrls(options?: GetAllOptions & { full: true }): Promise<FishFishURL[]>;
+	public async getAllUrls(options?: GetAllOptions & { full?: false }): Promise<string[]>;
+	public async getAllUrls(options: GetAllOptions | undefined = {}): Promise<FishFishURL[] | string[]> {
+		const _options = {
 			cache: true,
 			full: false,
 			category: Category.Phishing,
-			..._options,
+			...options,
 		} as GetAllOptions;
 
-		if (options.full) {
+		if (_options.full) {
 			await this._assertToken();
 		}
 
 		const params = new URLSearchParams();
-		params.append('category', options.category!);
-		params.append('full', options.full!.toString());
+		params.append('category', _options.category!);
+		params.append('full', _options.full!.toString());
 
 		const response = await request(`${API_BASE_URL}/urls?${params.toString()}`, {
 			method: 'GET',
@@ -568,7 +587,7 @@ export class FishFishApi {
 
 		const data = (await response.body.json()) as FishFishURL[];
 
-		if (this._options.cache && options.cache && (options.full || !this._options.doNotCachePartial)) {
+		if (this._options.cache && _options.cache && (_options.full || !this._options.doNotCachePartial)) {
 			for (const url of data) {
 				this.cache.urls.set(url.url, url);
 			}
