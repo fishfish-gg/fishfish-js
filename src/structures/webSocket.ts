@@ -63,6 +63,8 @@ export class FishFishWebSocket {
 
 	private readonly callback: (data: FishFishWebSocketData<any>) => Promise<void> | void;
 
+	private readonly WebSocketUrl = WEBSOCKET_BASE_URL;
+
 	private tries = 0;
 
 	public constructor(options: FishFishWebSocketOptions = {}) {
@@ -108,7 +110,7 @@ export class FishFishWebSocket {
 	public async connect(reconnect = false) {
 		this.debugLogger('Attempting to connect to WebSocket...');
 
-		this.connection = new WebSocket(WEBSOCKET_BASE_URL, {
+		this.connection = new WebSocket(this.WebSocketUrl, {
 			auth: (await this.auth.createSessionToken()).token,
 			headers: {
 				Authorization: (await this.auth.createSessionToken()).token,
