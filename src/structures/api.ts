@@ -324,7 +324,7 @@ export class FishFishApi {
 	 */
 	public async getDomain(domain: string, options?: GetOptions): Promise<FishFishDomain> {
 		assertString(domain, ErrorsMessages.INVALID_DOMAIN_TYPE);
-		const cached = this.cache.domains.get(domain);
+		const cached = this._options.cache ? this.cache.domains.get(domain) : null;
 
 		const _options = {
 			cache: options?.cache ?? true,
@@ -496,7 +496,7 @@ export class FishFishApi {
 	 */
 	public async getURL(url: string, options?: GetOptions): Promise<FishFishURL> {
 		assertString(url, ErrorsMessages.INVALID_URL_TYPE);
-		const cached = this.cache.urls.get(url);
+		const cached = this._options.cache ? this.cache.urls.get(url) : null;
 
 		const _options = {
 			cache: options?.cache ?? true,
