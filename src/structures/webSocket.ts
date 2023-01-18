@@ -107,6 +107,10 @@ export class FishFishWebSocket {
 		}
 	}
 
+	public get webSocket() {
+		return this.connection;
+	}
+
 	public async connect(reconnect = false) {
 		this.debugLogger('Attempting to connect to WebSocket...');
 
@@ -130,14 +134,14 @@ export class FishFishWebSocket {
 	}
 
 	private onOpen() {
-		this.debugLogger(`WebSocket connected to ${WEBSOCKET_BASE_URL}`, {
+		this.debugLogger(`WebSocket connected to ${this.WebSocketUrl}`, {
 			tries: this.tries,
 		});
 		this.tries = 0;
 	}
 
 	private onError(error: Error) {
-		this.debugLogger('Unknown error received', error);
+		this.debugLogger(`Unknown error received (${this.WebSocketUrl});`, error);
 	}
 
 	private onMessage(data: Buffer) {
