@@ -90,8 +90,6 @@ export class FishFishAuth {
 		this.debug = debug;
 		this._sessionToken = null;
 		this._permissions = permissions ?? [];
-
-		void this.createSessionToken();
 	}
 
 	/**
