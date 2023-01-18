@@ -1,5 +1,5 @@
 import process from 'node:process';
-import { setTimeout } from 'node:timers';
+import { setTimeout, setInterval, clearInterval } from 'node:timers';
 import { request } from 'undici';
 import { API_BASE_URL } from '../constants.js';
 import type { Permission } from '../enums.js';
@@ -79,15 +79,19 @@ export class FishFishAuth {
 
 	private readonly debug: boolean;
 
+	private _processing: boolean = false;
+
 	private _sessionToken: (Omit<FishFishSessionToken, 'expires'> & { expires: number }) | null;
 
 	public constructor({ apiKey, debug = false, permissions }: FishFishAuthOptions = {}) {
-		assertString(apiKey ?? process.env.FISHFISH_API_KEY, 'apiKey', ErrorsMessages.MISSING_API_KEY);
+		assertString(apiKey ?? process.env.FISHFISH_API_KEY, ErrorsMessages.MISSING_API_KEY);
 
 		this.apiKey = apiKey ?? process.env.FISHFISH_API_KEY!;
 		this.debug = debug;
 		this._sessionToken = null;
 		this._permissions = permissions ?? [];
+
+		void this.createSessionToken();
 	}
 
 	/**
@@ -127,31 +131,47 @@ export class FishFishAuth {
 			return this._transformSessionToken(this._sessionToken);
 		}
 
-		const response = await request(`${API_BASE_URL}/users/@me/tokens`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: this.apiKey,
-			},
-			body: JSON.stringify({
+		if (this._processing) {
+			return new Promise((resolve) => {
+				const interval = setInterval(() => {
+					if (this._sessionToken) {
+						clearInterval(interval);
+						resolve(this._transformSessionToken(this._sessionToken));
+					}
+				}, 10);
+			});
+		}
+
+		this._processing = true;
+		try {
+			const response = await request(`${API_BASE_URL}/users/@me/tokens`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: this.apiKey,
+				},
+				body: JSON.stringify({
+					permissions,
+				}),
+			});
+
+			await validateResponse(response, this.hasSessionToken);
+
+			const token = (await response.body.json()) as CreateTokenResponseBody;
+
+			this._sessionToken = {
+				...token,
 				permissions,
-			}),
-		});
+			};
 
-		await validateResponse(response, this.hasSessionToken);
+			this._createExpireTimeout();
 
-		const token = (await response.body.json()) as CreateTokenResponseBody;
+			this.debugLogger('Created session token.', { expire: this._sessionToken.expires * 1_000 });
 
-		this._sessionToken = {
-			...token,
-			permissions,
-		};
-
-		this._createExpireTimeout();
-
-		this.debugLogger('Created session token.', { expire: this._sessionToken.expires * 1_000 });
-
-		return this._transformSessionToken(this._sessionToken);
+			return this._transformSessionToken(this._sessionToken);
+		} finally {
+			this._processing = false;
+		}
 	}
 
 	private _createExpireTimeout() {
