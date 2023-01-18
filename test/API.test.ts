@@ -4,7 +4,7 @@ import { MockAgent, setGlobalDispatcher } from 'undici';
 import type { MockInterceptor } from 'undici/types/mock-interceptor.js';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { Category, ErrorsMessages, FishFishApi, FishFishAuth, Permission } from '../dist/index.js';
-import { createRandomRawData, createRandomStringData } from './data.js';
+import { createBulkRandomRawData, createRandomRawData, createRandomStringData } from './utils.js';
 
 const ScamDomains = createRandomStringData(Category.Phishing, 'domain');
 const ScamUrls = createRandomStringData(Category.Phishing, 'url');
@@ -227,4 +227,123 @@ test('Test: Unauthorized session token', async () => {
 			description: 'Bad domain',
 		}),
 	).rejects.toThrowError(ErrorsMessages.SESSION_TOKEN_UNAUTHORIZED);
+});
+
+test('Test: Cache', async () => {
+	const api = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+		},
+	});
+
+	const domain = createRandomRawData(Category.Phishing, 'domain');
+
+	mockPool
+		.intercept({
+			path: `/v1/domains/${domain.domain}`,
+			method: 'GET',
+		})
+		.reply(() => ({
+			statusCode: 200,
+			data: domain,
+			...responseOptions,
+		}))
+		.times(1);
+
+	await expect(api.getDomain(domain.domain)).resolves.toStrictEqual(domain);
+	expect(api.cache.domains.get(domain.domain)).toStrictEqual(domain);
+
+	const api2 = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+		},
+		cache: false,
+	});
+
+	expect(() => api2.cache).toThrowError(ErrorsMessages.CACHE_DISABLED);
+});
+
+test('Test: Cache - doNotCachePartials', async () => {
+	const api = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+		},
+		doNotCachePartial: true,
+	});
+
+	mockPool
+		.intercept({
+			path: '/v1/users/@me/tokens',
+			method: 'POST',
+		})
+		.reply(() => ({
+			statusCode: 200,
+			data: {
+				token: 'super-valid-session-token',
+				expires: Math.floor(Date.now() / 1_000) + 1_000,
+			},
+			...responseOptions,
+		}))
+		.times(1);
+
+	const fullDomains = createBulkRandomRawData(Category.Phishing, 'domain');
+
+	const domains = fullDomains.map((domain) => domain.domain);
+
+	mockPool
+		.intercept({
+			path: `/v1/domains?category=${Category.Phishing}&full=false`,
+			method: 'GET',
+		})
+		.reply(() => ({
+			statusCode: 200,
+			data: domains,
+			...responseOptions,
+		}))
+		.times(1);
+
+	await expect(api.getAllDomains()).resolves.toStrictEqual(domains);
+	expect(api.cache.domains.size).toBe(0);
+
+	mockPool
+		.intercept({
+			path: `/v1/domains?category=${Category.Phishing}&full=true`,
+			method: 'GET',
+		})
+		.reply(() => ({
+			statusCode: 200,
+			data: fullDomains,
+			...responseOptions,
+		}))
+		.times(1);
+
+	await expect(api.getAllDomains({ full: true })).resolves.toStrictEqual(fullDomains);
+	expect(api.cache.domains.size).toBe(fullDomains.length);
+});
+
+test('Test: Cache - disabled', async () => {
+	const api = new FishFishApi({
+		auth: {
+			apiKey: 'super-valid-api-key',
+		},
+		cache: false,
+	});
+
+	const domain = createRandomRawData(Category.Phishing, 'domain');
+
+	mockPool
+		.intercept({
+			path: `/v1/domains/${domain.domain}`,
+			method: 'GET',
+		})
+		.reply(() => ({
+			statusCode: 200,
+			data: domain,
+			...responseOptions,
+		}))
+		.times(1);
+
+	await expect(api.getDomain(domain.domain)).resolves.toStrictEqual(domain);
+	// // @ts-expect-error: Cache is disabled
+	// expect(api._cache.domains).toBe(0);
 });
