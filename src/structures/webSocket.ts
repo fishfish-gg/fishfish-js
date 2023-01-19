@@ -1,11 +1,11 @@
 import type { Buffer } from 'node:buffer';
 import EventEmitter from 'node:events';
-import { setTimeout, setInterval, clearInterval } from 'node:timers';
+import { setTimeout, setInterval } from 'node:timers';
 import WebSocket from 'ws';
 import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
 import { WebSocketDataTypes } from '../enums.js';
 import { ErrorsMessages } from '../errors.js';
-import type { RawWebSocketData } from '../types.js';
+import type { If, RawWebSocketData } from '../types.js';
 import { transformData } from '../utils.js';
 import type { FishFishDomain, FishFishURL } from './api.js';
 import { FishFishApi } from './api.js';
@@ -73,17 +73,18 @@ export interface FishFishWebSocketOptions {
 }
 
 interface FishFishWebSocketEvents {
-	data: [RawWebSocketData<any>];
-	error: [Error];
-	open: [WebSocket];
-	[WebSocketDataTypes.DomainCreate]: [FishFishWebSocketData<WebSocketDataTypes.DomainCreate>['data']];
-	[WebSocketDataTypes.DomainDelete]: [FishFishWebSocketData<WebSocketDataTypes.DomainDelete>['data']];
-	[WebSocketDataTypes.DomainUpdate]: [FishFishWebSocketData<WebSocketDataTypes.DomainUpdate>['data']];
-	[WebSocketDataTypes.UrlCreate]: [FishFishWebSocketData<WebSocketDataTypes.UrlCreate>['data']];
-	[WebSocketDataTypes.UrlDelete]: [FishFishWebSocketData<WebSocketDataTypes.UrlDelete>['data']];
-	[WebSocketDataTypes.UrlUpdate]: [FishFishWebSocketData<WebSocketDataTypes.UrlUpdate>['data']];
-	close: [{ attemptReconnectAfterMilliseconds: number; code: number; reason: Buffer; tries: number }];
-	debug: [string, ...unknown[]];
+	close: [data: { attemptReconnectAfterMilliseconds: number; code: number; reason: Buffer; tries: number }];
+	data: [data: FishFishWebSocketData<any>];
+	debug: [message: string, ...args: unknown[]];
+	['domain_create']: [data: FishFishWebSocketData<WebSocketDataTypes.DomainCreate>['data']];
+	['domain_delete']: [data: FishFishWebSocketData<WebSocketDataTypes.DomainDelete>['data']];
+	['domain_update']: [data: FishFishWebSocketData<WebSocketDataTypes.DomainUpdate>['data']];
+	error: [error: Error];
+	open: [connection: WebSocket];
+	raw: [raw: RawWebSocketData<any>];
+	['url_create']: [data: FishFishWebSocketData<WebSocketDataTypes.UrlCreate>['data']];
+	['url_delete']: [data: FishFishWebSocketData<WebSocketDataTypes.UrlDelete>['data']];
+	['url_update']: [data: FishFishWebSocketData<WebSocketDataTypes.UrlUpdate>['data']];
 }
 
 export class FishFishWebSocket {
@@ -172,11 +173,7 @@ export class FishFishWebSocket {
 		this.connection.on('close', this.onClose.bind(this));
 		this.connection.on('error', this.onError.bind(this));
 
-		if (this.fetchPeriodically) {
-			if (this.fetchTimeout) {
-				clearInterval(this.fetchTimeout);
-			}
-
+		if (this.fetchPeriodically && !this.fetchTimeout) {
 			this.debugLogger('Creating fetch interval...');
 			this.fetchTimeout = setInterval(this.fetch.bind(this), 60 * 60 * 1_000);
 		}
@@ -198,14 +195,16 @@ export class FishFishWebSocket {
 	}
 
 	private onMessage(rawData: Buffer) {
-		const objData = JSON.parse(rawData.toString());
+		const objData = JSON.parse(rawData.toString()) as RawWebSocketData<any>;
+
+		this.emit('raw', objData);
 
 		const { type } = objData;
 		const data = transformData<RawWebSocketData<any>['data']>(objData.data);
 
 		this.emit('data', {
 			type,
-			data,
+			data: data as FishFishWebSocketData<any>['data'],
 		});
 
 		this.emit(objData.type, data);
@@ -252,33 +251,33 @@ export class FishFishWebSocket {
 		if (this.manager) {
 			switch (rawData.type) {
 				case WebSocketDataTypes.DomainCreate:
-					this.manager.cache.domains.set(data.domain!, data as FishFishDomain);
+					this.manager.cache.domains.set((data as FishFishDomain).domain!, data as FishFishDomain);
 
 					break;
 				case WebSocketDataTypes.DomainDelete:
-					this.manager.cache.domains.delete(data.domain!);
+					this.manager.cache.domains.delete((data as FishFishDomain).domain!);
 
 					break;
 				case WebSocketDataTypes.DomainUpdate:
 					// eslint-disable-next-line no-case-declarations
-					const domain = this.manager.cache.domains.get(data.domain!) ?? {};
+					const domain = this.manager.cache.domains.get((data as FishFishDomain).domain!) ?? {};
 
-					this.manager.cache.domains.set(data.domain!, { ...domain, ...(data as FishFishDomain) });
+					this.manager.cache.domains.set((data as FishFishDomain).domain!, { ...domain, ...(data as FishFishDomain) });
 
 					break;
 				case WebSocketDataTypes.UrlCreate:
-					this.manager.cache.urls.set(data.url!, data as FishFishURL);
+					this.manager.cache.urls.set((data as FishFishURL).url!, data as FishFishURL);
 
 					break;
 				case WebSocketDataTypes.UrlDelete:
-					this.manager.cache.urls.delete(data.url!);
+					this.manager.cache.urls.delete((data as FishFishURL).url!);
 
 					break;
 				case WebSocketDataTypes.UrlUpdate:
 					// eslint-disable-next-line no-case-declarations
-					const url = this.manager.cache.urls.get(data.url!) ?? {};
+					const url = this.manager.cache.urls.get((data as FishFishURL).url!) ?? {};
 
-					this.manager.cache.urls.set(data.url!, { ...url, ...(data as FishFishURL) });
+					this.manager.cache.urls.set((data as FishFishURL).url!, { ...url, ...(data as FishFishURL) });
 
 					break;
 				default:
@@ -310,10 +309,13 @@ export class FishFishWebSocket {
 	 * @param data - The websocket data to check
 	 * @returns True if the data is a url data type
 	 */
-	public static isUrlData(
-		data: FishFishWebSocketData<any>,
-	): data is FishFishWebSocketData<
-		WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate
+	public static isUrlData<T extends FishFishWebSocketData<any> | RawWebSocketData<any> = FishFishWebSocketData<any>>(
+		data: FishFishWebSocketData<any> | RawWebSocketData<any>,
+	): data is If<
+		T,
+		FishFishWebSocketData<any>,
+		FishFishWebSocketData<WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate>,
+		RawWebSocketData<WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate>
 	> {
 		return [WebSocketDataTypes.UrlCreate, WebSocketDataTypes.UrlUpdate, WebSocketDataTypes.UrlDelete].includes(
 			data.type!,
@@ -326,10 +328,17 @@ export class FishFishWebSocket {
 	 * @param data - The websocket data to check
 	 * @returns True if the data is a domain data type
 	 */
-	public static isDomainData(
-		data: FishFishWebSocketData<any>,
-	): data is FishFishWebSocketData<
-		WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate
+	public static isDomainData<T extends FishFishWebSocketData<any> | RawWebSocketData<any> = FishFishWebSocketData<any>>(
+		data: FishFishWebSocketData<any> | RawWebSocketData<any>,
+	): data is If<
+		T,
+		FishFishWebSocketData<any>,
+		FishFishWebSocketData<
+			WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate
+		>,
+		RawWebSocketData<
+			WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate
+		>
 	> {
 		return [WebSocketDataTypes.DomainCreate, WebSocketDataTypes.DomainUpdate, WebSocketDataTypes.DomainDelete].includes(
 			data.type!,

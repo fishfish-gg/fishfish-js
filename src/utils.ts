@@ -16,7 +16,7 @@ export function transformData<T = FishFishDomain | FishFishURL | FishFishWebSock
 	return {
 		...data,
 		added: data.added ? new Date(data.added) : new Date(),
-		updated: data.checked ? new Date(data.checked) : new Date(),
+		checked: data.checked ? new Date(data.checked) : new Date(),
 	} as unknown as T;
 }
 
