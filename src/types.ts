@@ -198,7 +198,7 @@ export interface FishFishUser {
 	username: string;
 }
 
-export interface FishFishWebSocketData<T extends WebSocketDataTypes> {
+export interface RawWebSocketData<T extends WebSocketDataTypes> {
 	data: {
 		category: Category;
 		description: string;

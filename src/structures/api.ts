@@ -22,9 +22,14 @@ import { FishFishWebSocket } from './webSocket.js';
  */
 export interface FishFishDomain extends Omit<RawDomainData, 'added' | 'checked'> {
 	/**
-	 * The date this domain was added/last updated in the API.
+	 * The date this domain was added to the API.
 	 */
-	lastChecked: Date;
+	added: Date;
+
+	/**
+	 * The date this domain was last checked.
+	 */
+	checked: Date;
 }
 
 /**

@@ -1,7 +1,8 @@
 import type { Dispatcher } from 'undici';
 import { ErrorsMessages } from './errors.js';
 import type { FishFishDomain, FishFishURL } from './structures/api.js';
-import type { FishFishWebSocketData } from './types.js';
+import type { FishFishWebSocketData } from './structures/webSocket.js';
+import type { RawWebSocketData, RawDomainData, RawURLData } from './types.js';
 
 export function assertString(value: unknown, errorMessage?: ErrorsMessages): asserts value is string {
 	if (typeof value !== 'string') {
@@ -9,10 +10,13 @@ export function assertString(value: unknown, errorMessage?: ErrorsMessages): ass
 	}
 }
 
-export function transformData<T = FishFishDomain | FishFishURL>(data: FishFishWebSocketData<any>['data']): T {
+export function transformData<T = FishFishDomain | FishFishURL | FishFishWebSocketData<any>['data']>(
+	data: RawDomainData | RawURLData | (Partial<{ added: number; checked?: number }> & RawWebSocketData<any>['data']),
+): T {
 	return {
 		...data,
-		lastUpdated: new Date(),
+		added: data.added ? new Date(data.added) : new Date(),
+		updated: data.checked ? new Date(data.checked) : new Date(),
 	} as unknown as T;
 }
 
