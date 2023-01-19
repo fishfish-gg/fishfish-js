@@ -1,4 +1,5 @@
 import type { Buffer } from 'node:buffer';
+import EventEmitter from 'node:events';
 import { setTimeout, setInterval, clearInterval } from 'node:timers';
 import WebSocket from 'ws';
 import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
@@ -71,7 +72,23 @@ export interface FishFishWebSocketOptions {
 	manager?: FishFishApi;
 }
 
+interface FishFishWebSocketEvents {
+	data: [RawWebSocketData<any>];
+	error: [Error];
+	open: [WebSocket];
+	[WebSocketDataTypes.DomainCreate]: [FishFishWebSocketData<WebSocketDataTypes.DomainCreate>['data']];
+	[WebSocketDataTypes.DomainDelete]: [FishFishWebSocketData<WebSocketDataTypes.DomainDelete>['data']];
+	[WebSocketDataTypes.DomainUpdate]: [FishFishWebSocketData<WebSocketDataTypes.DomainUpdate>['data']];
+	[WebSocketDataTypes.UrlCreate]: [FishFishWebSocketData<WebSocketDataTypes.UrlCreate>['data']];
+	[WebSocketDataTypes.UrlDelete]: [FishFishWebSocketData<WebSocketDataTypes.UrlDelete>['data']];
+	[WebSocketDataTypes.UrlUpdate]: [FishFishWebSocketData<WebSocketDataTypes.UrlUpdate>['data']];
+	close: [{ attemptReconnectAfterMilliseconds: number; code: number; reason: Buffer; tries: number }];
+	debug: [string, ...unknown[]];
+}
+
 export class FishFishWebSocket {
+	private readonly emitter = new EventEmitter();
+
 	private connection: WebSocket | null;
 
 	private readonly auth: FishFishAuth;
@@ -83,8 +100,6 @@ export class FishFishWebSocket {
 	private readonly fetchPeriodically: boolean;
 
 	private readonly identity: string;
-
-	private readonly callback: (data: FishFishWebSocketData<any>) => Promise<void> | void;
 
 	private readonly WebSocketUrl = WEBSOCKET_BASE_URL;
 
@@ -119,13 +134,15 @@ export class FishFishWebSocket {
 
 		this.debug = options.debug ?? false;
 
-		this.callback = options.callback?.bind(this) ?? this.defaultCallback.bind(this);
-
 		this.connection = null;
 
 		this.identity = this.manager?.options.identity ?? options.identity ?? DEFAULT_IDENTITY;
 
 		void this.connect();
+
+		if (this.manager) {
+			this.on('data', this.onData.bind(this));
+		}
 
 		if (this.fetchPeriodically) {
 			void this.fetch();
@@ -170,21 +187,31 @@ export class FishFishWebSocket {
 			tries: this.tries,
 		});
 		this.tries = 0;
+
+		this.emit('open', this.connection!);
 	}
 
 	private onError(error: Error) {
 		this.debugLogger(`Unknown error received (${this.WebSocketUrl});`, error);
+
+		this.emit('error', error);
 	}
 
-	private onMessage(data: Buffer) {
-		const objData = JSON.parse(data.toString());
-		void this.callback({
-			...objData,
-			data: transformData<RawWebSocketData<any>['data']>(objData.data),
+	private onMessage(rawData: Buffer) {
+		const objData = JSON.parse(rawData.toString());
+
+		const { type } = objData;
+		const data = transformData<RawWebSocketData<any>['data']>(objData.data);
+
+		this.emit('data', {
+			type,
+			data,
 		});
+
+		this.emit(objData.type, data);
 	}
 
-	private onClose(code: number, reason: string) {
+	private onClose(code: number, reason: Buffer) {
 		const backOff = this.backOff();
 		this.tries += 1;
 
@@ -199,6 +226,13 @@ export class FishFishWebSocket {
 			},
 		);
 
+		this.emit('close', {
+			code,
+			tries: this.tries,
+			reason,
+			attemptReconnectAfterMilliseconds: backOff,
+		});
+
 		setTimeout(() => {
 			void this.connect();
 		}, this.backOff());
@@ -208,12 +242,12 @@ export class FishFishWebSocket {
 		return Math.min(Math.floor(Math.exp(this.tries)), 10 * 60) * 1_000;
 	}
 
-	private defaultCallback(rawData: FishFishWebSocketData<any>) {
+	private onData(rawData: RawWebSocketData<any>) {
 		this.debugLogger('Received data from WebSocket', rawData);
 
 		if (!this.manager) return;
 
-		const { data } = rawData;
+		const data = transformData<RawWebSocketData<any>['data']>(rawData.data) as FishFishWebSocketData<any>['data'];
 
 		if (this.manager) {
 			switch (rawData.type) {
@@ -266,6 +300,8 @@ export class FishFishWebSocket {
 		if (this.debug) {
 			console.log(`[WebSocket: debug]: ${message}`, ...args);
 		}
+
+		this.emit('debug', message, ...args);
 	}
 
 	/**
@@ -298,5 +334,33 @@ export class FishFishWebSocket {
 		return [WebSocketDataTypes.DomainCreate, WebSocketDataTypes.DomainUpdate, WebSocketDataTypes.DomainDelete].includes(
 			data.type!,
 		);
+	}
+
+	public emit<TEventName extends string & keyof FishFishWebSocketEvents>(
+		eventName: TEventName,
+		...eventArg: FishFishWebSocketEvents[TEventName]
+	) {
+		this.emitter.emit(eventName, ...eventArg);
+	}
+
+	public on<TEventName extends string & keyof FishFishWebSocketEvents>(
+		eventName: TEventName,
+		handler: (...eventArg: FishFishWebSocketEvents[TEventName]) => void,
+	) {
+		this.emitter.on(eventName, handler as any);
+	}
+
+	public once<TEventName extends string & keyof FishFishWebSocketEvents>(
+		eventName: TEventName,
+		handler: (...eventArg: FishFishWebSocketEvents[TEventName]) => void,
+	) {
+		this.emitter.once(eventName, handler as any);
+	}
+
+	public off<TEventName extends string & keyof FishFishWebSocketEvents>(
+		eventName: TEventName,
+		handler: (...eventArg: FishFishWebSocketEvents[TEventName]) => void,
+	) {
+		this.emitter.off(eventName, handler as any);
 	}
 }
