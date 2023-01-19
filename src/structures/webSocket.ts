@@ -15,9 +15,22 @@ import { FishFishAuth } from './auth.js';
  * The data received from the WebSocket.
  */
 export interface FishFishWebSocketData<T extends WebSocketDataTypes> extends RawWebSocketData<T> {
+	/**
+	 * The data of the event with dates parsed.
+	 */
 	data: RawWebSocketData<T>['data'] & {
+		/**
+		 * The date this URL/Domain was added to the API.
+		 */
 		added: Date;
-		checked?: Date;
+		/**
+		 * The date this URL/Domain was last checked.
+		 *
+		 * **Note**: This will be always the same as `added` for if the event is `domain_create` or `url_create`.
+		 *
+		 * @see WebSocketDataTypes
+		 */
+		checked: Date;
 	};
 }
 

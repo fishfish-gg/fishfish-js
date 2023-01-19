@@ -198,16 +198,41 @@ export interface FishFishUser {
 	username: string;
 }
 
+/**
+ * The raw data of a WebSocket event.
+ */
 export interface RawWebSocketData<T extends WebSocketDataTypes> {
+	/**
+	 * The data of the event.
+	 *
+	 * If the event is related to a domain, the `domain` property will be set.
+	 * If the event is related to a URL, the `url` property will be set.
+	 */
 	data: {
+		/**
+		 * The category of the domain.
+		 */
 		category: Category;
+		/**
+		 * The description of the domain.
+		 */
 		description: string;
+		/**
+		 * The domain.
+		 *
+		 * **Note:** This property is only set if the event is related to a domain.
+		 */
 		domain: If<
 			T,
 			WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate,
 			string,
 			undefined
 		>;
+		/**
+		 * The url.
+		 *
+		 * **Note:** This property is only set if the event is related to a URL.
+		 */
 		url: If<
 			T,
 			WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate,
@@ -215,5 +240,10 @@ export interface RawWebSocketData<T extends WebSocketDataTypes> {
 			undefined
 		>;
 	};
+	/**
+	 * The type of the event.
+	 *
+	 * @see WebSocketDataTypes
+	 */
 	type: T;
 }
