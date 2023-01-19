@@ -1,5 +1,5 @@
 import type { Buffer } from 'node:buffer';
-import { setTimeout, setInterval } from 'node:timers';
+import { setTimeout, setInterval, clearInterval } from 'node:timers';
 import WebSocket from 'ws';
 import { DEFAULT_IDENTITY, WEBSOCKET_BASE_URL } from '../constants.js';
 import { WebSocketDataTypes } from '../enums.js';
@@ -75,6 +75,8 @@ export class FishFishWebSocket {
 
 	private readonly WebSocketUrl = WEBSOCKET_BASE_URL;
 
+	private fetchTimeout: NodeJS.Timeout | null = null;
+
 	private tries = 0;
 
 	public constructor(options: FishFishWebSocketOptions = {}) {
@@ -121,7 +123,10 @@ export class FishFishWebSocket {
 		return this.connection;
 	}
 
-	public async connect(reconnect = false) {
+	/**
+	 *
+	 */
+	public async connect() {
 		this.debugLogger('Attempting to connect to WebSocket...');
 
 		this.connection = new WebSocket(this.WebSocketUrl, {
@@ -137,9 +142,13 @@ export class FishFishWebSocket {
 		this.connection.on('close', this.onClose.bind(this));
 		this.connection.on('error', this.onError.bind(this));
 
-		if (this.fetchPeriodically && reconnect) {
+		if (this.fetchPeriodically) {
+			if (this.fetchTimeout) {
+				clearInterval(this.fetchTimeout);
+			}
+
 			this.debugLogger('Creating fetch interval...');
-			setInterval(this.fetch.bind(this), 60 * 60 * 1_000);
+			this.fetchTimeout = setInterval(this.fetch.bind(this), 60 * 60 * 1_000);
 		}
 	}
 
@@ -178,7 +187,7 @@ export class FishFishWebSocket {
 		);
 
 		setTimeout(() => {
-			void this.connect(true);
+			void this.connect();
 		}, this.backOff());
 	}
 
