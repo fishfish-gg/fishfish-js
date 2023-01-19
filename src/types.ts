@@ -1,6 +1,6 @@
 import type { Category, Permission, WebSocketDataTypes } from './enums.js';
 
-type If<Generic, Condition, Then, Else = null> = Generic extends Condition ? Then : Else;
+export type If<Generic, Condition, Then, Else = null> = Generic extends Condition ? Then : Else;
 
 /**
  * The response body for the `GET /status` endpoint.
@@ -208,37 +208,42 @@ export interface RawWebSocketData<T extends WebSocketDataTypes> {
 	 * If the event is related to a domain, the `domain` property will be set.
 	 * If the event is related to a URL, the `url` property will be set.
 	 */
-	data: {
+	data: If<
+		T,
+		WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate,
+		{
+			/**
+			 * The domain.
+			 *
+			 * **Note:** This property is only set if the event is related to a domain.
+			 */
+			domain: string;
+		},
+		{
+			/**
+			 * The url.
+			 *
+			 * **Note:** This property is only set if the event is related to a URL.
+			 */
+			url: string;
+		}
+	> & {
+		/**
+		 * When this domain/Url was added.
+		 */
+		added: number;
 		/**
 		 * The category of the domain.
 		 */
 		category: Category;
 		/**
+		 * When the domain/Url was last checked.
+		 */
+		checked: number;
+		/**
 		 * The description of the domain.
 		 */
 		description: string;
-		/**
-		 * The domain.
-		 *
-		 * **Note:** This property is only set if the event is related to a domain.
-		 */
-		domain: If<
-			T,
-			WebSocketDataTypes.DomainCreate | WebSocketDataTypes.DomainDelete | WebSocketDataTypes.DomainUpdate,
-			string,
-			undefined
-		>;
-		/**
-		 * The url.
-		 *
-		 * **Note:** This property is only set if the event is related to a URL.
-		 */
-		url: If<
-			T,
-			WebSocketDataTypes.UrlCreate | WebSocketDataTypes.UrlDelete | WebSocketDataTypes.UrlUpdate,
-			string,
-			undefined
-		>;
 	};
 	/**
 	 * The type of the event.
