@@ -1,0 +1,16 @@
+src
+node_modules
+.yarn/**/*
+test/*
+.github/**/*
+.prettierignore
+.prettierrc.json
+.swcrc
+.husky/**/*
+.vscode/**/*
+.yarnrc.yml
+.eslintrc.json
+.gitattributes
+.lintstagedrc.json
+tsconfig.json
+tsconfig.eslint.json
